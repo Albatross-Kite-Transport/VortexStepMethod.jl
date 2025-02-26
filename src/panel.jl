@@ -65,10 +65,10 @@ mutable struct Panel
         z_airf::PosVector
     )
         # Initialize basic geometry
-        TE_point_1 = copy(section_1.TE_point)
-        LE_point_1 = copy(section_1.LE_point)
-        TE_point_2 = copy(section_2.TE_point)
-        LE_point_2 = copy(section_2.LE_point)
+        TE_point_1 = section_1.TE_point
+        LE_point_1 = section_1.LE_point
+        TE_point_2 = section_2.TE_point
+        LE_point_2 = section_2.LE_point
         
         chord = mean([
             norm(TE_point_1 - LE_point_1),
@@ -84,9 +84,6 @@ mutable struct Panel
             throw(ArgumentError("Both sections must have the same aero_input, not $aero_model and $aero_model_2"))
         end
         
-        # Initialize aerodynamic properties
-        cl_coeffs, cd_coeffs, cm_coeffs = zeros(3), zeros(3), zeros(3)
-        
         # Calculate width
         width = norm(bound_point_2 - bound_point_1)
         
@@ -95,9 +92,12 @@ mutable struct Panel
             BoundFilament(bound_point_2, bound_point_1),
             BoundFilament(bound_point_1, TE_point_1),
             BoundFilament(TE_point_2, bound_point_2)
-        ]
-
+            ]
+            
         cl_interp, cd_interp, cm_interp = nothing, nothing, nothing
+        
+        # Initialize aerodynamic properties
+        cl_coeffs, cd_coeffs, cm_coeffs = zeros(3), zeros(3), zeros(3)
 
         if aero_model === :lei_airfoil_breukels
             cl_coeffs, cd_coeffs, cm_coeffs = compute_lei_coefficients(section_1, section_2)
@@ -157,6 +157,43 @@ mutable struct Panel
             width, filaments
         )
     end
+end
+
+function update_pos!(
+    panel::Panel, 
+    section_1::Section,
+    section_2::Section,
+    aero_center::PosVector,
+    control_point::PosVector,
+    bound_point_1::PosVector,
+    bound_point_2::PosVector,
+    x_airf::PosVector,
+    y_airf::PosVector,
+    z_airf::PosVector
+)
+    update_filament!(filaments[1], bound_point_2, bound_point_1)
+    update_filament!(filaments[2], bound_point_1, TE_point_1)
+    update_filament!(filaments[3], TE_point_2, bound_point_2)
+
+    panel.TE_point_1 .= section_1.TE_point
+    panel.LE_point_1 .= section_1.LE_point
+    panel.TE_point_2 .= section_2.TE_point
+    panel.LE_point_2 .= section_2.LE_point
+    panel.chord = mean([
+        norm(TE_point_1 - LE_point_1),
+        norm(TE_point_2 - LE_point_2)
+    ])
+    panel.corner_points .= hcat(LE_point_1, TE_point_1, TE_point_2, LE_point_2)
+    panel.aero_center .= aero_center
+    panel.control_point .= control_point
+    panel.bound_point_1 .= bound_point_1
+    panel.bound_point_2 .= bound_point_2
+    panel.x_airf .= x_airf
+    panel.y_airf .= y_airf
+    panel.z_airf .= z_airf
+    panel.width = norm(bound_point_2 - bound_point_1)
+    panel.filaments .= filaments
+    nothing
 end
 
 """

@@ -141,7 +141,7 @@ using Serialization
         wing = KiteWing(test_obj_path, test_dat_path)
         
         @test wing.n_panels == 54  # Default value
-        @test wing.spanwise_panel_distribution == LINEAR
+        @test wing.spanwise_panel_distribution == UNCHANGED
         @test wing.spanwise_direction ≈ [0.0, 1.0, 0.0]
         @test length(wing.sections) > 0  # Should have sections now
         @test wing.mass ≈ 1.0

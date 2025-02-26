@@ -19,7 +19,7 @@ Represents a bound vortex filament defined by two points.
 - length: Filament length
 - r0::MVec3: Vector from x1 to x2
 """
-struct BoundFilament <: Filament
+mutable struct BoundFilament <: Filament
     x1::MVec3       # First point
     x2::MVec3       # Second point
     length::Float64 # Filament length
@@ -28,6 +28,14 @@ struct BoundFilament <: Filament
     function BoundFilament(x1::PosVector, x2::PosVector)
         new(x1, x2, norm(x2 - x1), x2 - x1)
     end
+end
+
+function update_pos!(filament::BoundFilament, x1::PosVector, x2::PosVector)
+    filament.x1 .= x1
+    filament.x2 .= x2
+    filament.length = norm(x2 - x1)
+    filament.r0 .= x2 .- x1
+    return nothing
 end
 
 """
@@ -151,11 +159,19 @@ end
 
 Represents a semi-infinite vortex filament.
 """
-struct SemiInfiniteFilament <: Filament
+mutable struct SemiInfiniteFilament <: Filament
     x1::MVec3                    # Starting point
     direction::MVec3             # Direction vector
     vel_mag::Float64             # Velocity magnitude
     filament_direction::Int64    # Direction indicator (-1 or 1)
+end
+
+function update_pos!(filament::SemiInfiniteFilament, x1::PosVector, direction::PosVector, vel_mag, filament_direction)
+    filament.x1 .= x1
+    filament.direction .= direction
+    filament.vel_mag = vel_mag
+    filament.filament_direction = filament_direction
+    return nothing
 end
 
 """

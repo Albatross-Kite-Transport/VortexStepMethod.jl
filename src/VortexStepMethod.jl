@@ -11,7 +11,7 @@ using Measures
 using LaTeXStrings
 using NonlinearSolve
 using Interpolations
-using Interpolations: linear_interpolation, Line, Extrapolation, FilledExtrapolation
+using Interpolations: Extrapolation
 using Serialization
 using SharedArrays
 
@@ -39,14 +39,14 @@ const MVec3    = MVector{3, Float64}
 
 Position vector, either a `MVec3` or a `Vector` for use in function signatures.
 """
-const PosVector=Union{MVec3, Vector, SizedVector{3, Float64, Vector{Float64}}}
+const PosVector=Union{MVec3, Vector}
 
 """
    const VelVector=Union{MVec3, Vector, SizedVector{3, Float64, Vector{Float64}}}
 
 Velocity vector, either a `MVec3` or a `Vector` for use in function signatures.
 """
-const VelVector=Union{MVec3, Vector, SizedVector{3, Float64, Vector{Float64}}}
+const VelVector=Union{MVec3, Vector}
 
 """
    Model `VSM` `LLT`

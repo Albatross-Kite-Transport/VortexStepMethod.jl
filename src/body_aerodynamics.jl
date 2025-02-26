@@ -104,6 +104,39 @@ function Base.setproperty!(obj::BodyAerodynamics, sym::Symbol, val)
     end
 end
 
+function update_pos!(body_aero::BodyAerodynamics, le_pos::AbstractMatrix, te_pos::AbstractMatrix)
+    panels = Panel[]
+    for wing in body_aero.wings
+        section_list = refine_aerodynamic_mesh(wing)
+        n_panels_per_wing = length(section_list) - 1
+        
+        # Calculate panel properties
+        panel_props = calculate_panel_properties(
+            section_list,
+            n_panels_per_wing,
+            aero_center_location,
+            control_point_location
+        )
+        
+        # Create panels
+        for panel in body_aero.panels
+
+            update_pos!(
+                panel,
+                section_list[i],
+                section_list[i+1],
+                panel_props.aero_centers[i],
+                panel_props.control_points[i],
+                panel_props.bound_points_1[i],
+                panel_props.bound_points_2[i],
+                panel_props.x_airf[i],
+                panel_props.y_airf[i],
+                panel_props.z_airf[i]
+            )
+        end
+    end
+end
+
 """
     PanelProperties
 
@@ -651,20 +684,13 @@ Set velocity array and update wake filaments.
 - `va`: Either a velocity vector or a vector of velocity vectors per panel 
 - `omega`: Turn rate around x y and z axis
 """
-function set_va!(body_aero::BodyAerodynamics, va, omega=zeros(MVec3))
-    omega = MVec3(omega)
-
-    # Add length check for va
-    if va isa Vector{Float64} && length(va) != 3 && length(va) != length(body_aero.panels)
-        throw(ArgumentError("va must be length 3 or match number of panels"))
-    end
+function set_va!(body_aero::BodyAerodynamics, va::VelVector, omega=zeros(MVec3))
+    length(va) != 3 && throw(ArgumentError("va must be length 3"))
     
     # Calculate va_distribution based on input type
-    va_distribution = if length(va) == 3 && all(omega .== 0.0)
+    va_distribution = if all(omega .== 0.0)
         repeat(reshape(va, 1, 3), length(body_aero.panels))
-    elseif length(va) == length(body_aero.panels)
-        va
-    elseif !all(omega .== 0.0) && length(va) == 3
+    elseif !all(omega .== 0.0)
         va_dist = zeros(length(body_aero.panels), 3)
         
         for wing in body_aero.wings
@@ -678,13 +704,24 @@ function set_va!(body_aero::BodyAerodynamics, va, omega=zeros(MVec3))
             end
         end
         va_dist
-    else
-        throw(ArgumentError("Invalid va distribution: length(va)=$(length(va)) ≠ n_panels=$(length(body_aero.panels))"))
     end
     
     # Update panel velocities
     for (i, panel) in enumerate(body_aero.panels)
         panel.va = va_distribution[i,:]
+    end
+    
+    # Update wake elements
+    body_aero.panels = frozen_wake(va_distribution, body_aero.panels)
+    body_aero._va = va
+    return nothing
+end
+
+function set_va!(body_aero::BodyAerodynamics, va_distribution::Vector{VelVector}, omega=zeros(MVec3))
+    length(va) != length(body_aero.panels) && throw(ArgumentError("Length of va distribution should be equal to number of panels."))
+    
+    for (i, panel) in enumerate(body_aero.panels)
+        panel.va = va_distribution[i]
     end
     
     # Update wake elements

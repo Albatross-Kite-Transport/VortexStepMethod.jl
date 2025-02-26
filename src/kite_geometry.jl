@@ -204,8 +204,8 @@ mutable struct KiteWing <: AbstractWing
     te_interp::Extrapolation
     area_interp::Extrapolation
 
-    function KiteWing(obj_path, dat_path; alpha=0.0, n_sections=20, crease_frac=0.75, wind_vel=10., mass=1.0, 
-        n_panels=54, spanwise_panel_distribution=LINEAR, spanwise_direction=[0.0, 1.0, 0.0])
+    function KiteWing(obj_path, dat_path; alpha=0.0, crease_frac=0.75, wind_vel=10., mass=1.0, 
+            n_panels=54, n_sections=n_panels+1, spanwise_panel_distribution=UNCHANGED, spanwise_direction=[0.0, 1.0, 0.0])
         
         !isapprox(spanwise_direction, [0.0, 1.0, 0.0]) && @error "Spanwise direction has to be [0.0, 1.0, 0.0]"
         
