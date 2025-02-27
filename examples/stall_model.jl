@@ -43,7 +43,7 @@ end
 body_aero_CAD_19ribs = BodyAerodynamics([CAD_wing])
 
 # Create solvers
-VSM = Solver(
+vsm_solver = Solver(
     aerodynamic_model_type=VSM,
     is_with_artificial_damping=false
 )
@@ -78,7 +78,7 @@ plot && plot_geometry(
 )
 
 # Solving and plotting distributions
-results = solve(VSM, body_aero_CAD_19ribs)
+results = solve(vsm_solver, body_aero_CAD_19ribs)
 @time results_with_stall = solve(VSM_with_stall_correction, body_aero_CAD_19ribs)
 @time results_with_stall = solve(VSM_with_stall_correction, body_aero_CAD_19ribs)
 
@@ -106,7 +106,7 @@ path_cfd_lebesque = joinpath(
 )
 
 plot && plot_polars(
-    [VSM, VSM_with_stall_correction],
+    [vsm_solver, VSM_with_stall_correction],
     [body_aero_CAD_19ribs, body_aero_CAD_19ribs],
     [
         "VSM CAD 19ribs",

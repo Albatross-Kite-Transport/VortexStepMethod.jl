@@ -40,7 +40,7 @@ Save a plot to a file.
 # Keyword arguments
 - `data_type`: File extension (default: ".pdf")
 """
-function save_plot(fig, save_path, title; data_type=".pdf")
+function VortexStepMethod.save_plot(fig, save_path, title; data_type=".pdf")
     isnothing(save_path) && throw(ArgumentError("save_path should be provided"))
 
     !isdir(save_path) && mkpath(save_path)
@@ -77,7 +77,7 @@ Display a plot at specified DPI.
 # Keyword arguments
 - `dpi`: Dots per inch for the figure (default: 130)
 """
-function show_plot(fig; dpi=130)
+function VortexStepMethod.show_plot(fig; dpi=130)
     plt.display(fig)
 end
 
@@ -261,7 +261,7 @@ Plot wing geometry from different viewpoints and optionally save/show plots.
 - `view_azimuth`: initial view azimuth angle (default: -120) [°]
 
 """
-function plot_geometry(body_aero::BodyAerodynamics, title;
+function VortexStepMethod.plot_geometry(body_aero::BodyAerodynamics, title;
     data_type=".pdf",
     save_path=nothing,
     is_save=false,
@@ -317,7 +317,7 @@ Plot spanwise distributions of aerodynamic properties.
 - `is_save`: Whether to save plots (default: false)
 - `is_show`: Whether to display plots (default: true)
 """
-function plot_distribution(y_coordinates_list, results_list, label_list;
+function VortexStepMethod.plot_distribution(y_coordinates_list, results_list, label_list;
     title="spanwise_distribution",
     data_type=".pdf",
     save_path=nothing,
@@ -594,7 +594,7 @@ Plot polar data comparing different solvers and configurations.
 - `is_save`: Whether to save plots (default: true)
 - `is_show`: Whether to display plots (default: true)
 """
-function plot_polars(
+function VortexStepMethod.plot_polars(
     solver_list,
     body_aero_list,
     label_list;

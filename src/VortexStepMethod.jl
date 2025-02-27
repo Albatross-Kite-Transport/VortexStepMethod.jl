@@ -6,7 +6,6 @@ using Logging
 using Statistics
 using Colors
 using DelimitedFiles
-using ControlPlots
 using Measures
 using LaTeXStrings
 using NonlinearSolve
@@ -22,12 +21,22 @@ export Solver, solve
 export calculate_results, solve_circulation_distribution
 export add_section!, set_va!
 export calculate_span, calculate_projected_area
-export plot_wing, plot_circulation_distribution, plot_geometry, plot_distribution, plot_polars
-export show_plot, save_plot, menu
+export menu
 export Model, VSM, LLT
 export AeroModel, LEI_AIRFOIL_BREUKELS, POLAR_DATA, INVISCID
 export PanelDistribution, LINEAR, COSINE, COSINE_VAN_GARREL, SPLIT_PROVIDED, UNCHANGED
 export InitialGammaDistribution, ELLIPTIC, ZEROS
+
+export plot_geometry, plot_distribution, plot_circulation_distribution, plot_geometry, plot_polars, save_plot, show_plot
+
+# the following functions are defined in ext/VortexStepMethodExt.jl
+function plot_geometry end
+function plot_distribution end
+function plot_circulation_distribution end
+function plot_geometry end
+function plot_polars end
+function save_plot end
+function show_plot end
 
 """
    const MVec3    = MVector{3, Float64}
@@ -122,8 +131,5 @@ include("panel.jl")
 include("wake.jl")
 include("body_aerodynamics.jl")
 include("solver.jl")
-
-# include plotting
-include("plotting.jl")
 
 end # module
