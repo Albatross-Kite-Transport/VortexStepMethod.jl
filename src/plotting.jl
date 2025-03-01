@@ -537,7 +537,11 @@ function generate_polar_data(
         )
 
         # Solve and store results
-        results = solve(solver, body_aero, gamma_distribution[i, :])
+        if i == 1
+            results = solve(solver, body_aero, gamma_distribution[i, :])
+        else
+            results = solve(solver, body_aero, gamma_distribution[i-1, :])
+        end
 
         cl[i] = results["cl"]
         cd[i] = results["cd"]
@@ -600,7 +604,7 @@ function VortexStepMethod.plot_polars(
     body_aero_list,
     label_list;
     literature_path_list=String[],
-    angle_range=range(0, 20, 2),
+    angle_range=range(0, 20, 20),
     angle_type="angle_of_attack",
     angle_of_attack=0.0,
     side_slip=0.0,

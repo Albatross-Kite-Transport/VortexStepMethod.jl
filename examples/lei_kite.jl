@@ -48,14 +48,10 @@ vsm_solver = Solver(
     aerodynamic_model_type=VSM,
     is_with_artificial_damping=false
 )
-VSM_with_stall_correction = Solver(
-    aerodynamic_model_type=VSM,
-    is_with_artificial_damping=true
-)
 
 # Setting velocity conditions
 v_a = 15.0
-aoa = 17.0
+aoa = 20.0
 side_slip = 0.0
 yaw_rate = 0.0
 aoa_rad = deg2rad(aoa)
@@ -80,15 +76,13 @@ plot && plot_geometry(
 
 # Solving and plotting distributions
 results = solve(vsm_solver, body_aero_CAD_19ribs)
-@time results_with_stall = solve(VSM_with_stall_correction, body_aero_CAD_19ribs)
-@time results_with_stall = solve(VSM_with_stall_correction, body_aero_CAD_19ribs)
 
 CAD_y_coordinates = [panel.aero_center[2] for panel in body_aero_CAD_19ribs.panels]
 
 plot && plot_distribution(
-    [CAD_y_coordinates, CAD_y_coordinates],
-    [results, results_with_stall],
-    ["VSM", "VSM with stall correction"];
+    [CAD_y_coordinates],
+    [results],
+    ["VSM"];
     title="CAD_spanwise_distributions_alpha_$(round(aoa, digits=1))_beta_$(round(side_slip, digits=1))_yaw_$(round(yaw_rate, digits=1))_v_a_$(round(v_a, digits=1))",
     data_type=".pdf",
     save_path=joinpath(save_folder, "spanwise_distributions"),
@@ -107,11 +101,10 @@ path_cfd_lebesque = joinpath(
 )
 
 plot && plot_polars(
-    [vsm_solver, VSM_with_stall_correction],
-    [body_aero_CAD_19ribs, body_aero_CAD_19ribs],
+    [vsm_solver],
+    [body_aero_CAD_19ribs],
     [
         "VSM CAD 19ribs",
-        "VSM CAD 19ribs , with stall correction",
         "CFD_Lebesque Rey 30e5"
     ];
     literature_path_list=[path_cfd_lebesque],
@@ -120,10 +113,10 @@ plot && plot_polars(
     angle_of_attack=0,
     side_slip=0,
     v_a=10,
-    title="tutorial_testing_stall_model_n_panels_$(n_panels)_distribution_$(spanwise_panel_distribution)",
+    title="tutorial_testing_lei_kite_n_panels_$(n_panels)_distribution_$(spanwise_panel_distribution)",
     data_type=".pdf",
     save_path=joinpath(save_folder, "polars"),
-    is_save=true,
+    is_save=false,
     is_show=true
 )
 nothing
