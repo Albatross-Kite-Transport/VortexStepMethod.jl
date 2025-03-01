@@ -62,17 +62,17 @@ vel_app = [
 ] * v_a
 set_va!(body_aero_CAD_19ribs, vel_app)
 
-# Plotting geometry
-plot && plot_geometry(
-    body_aero_CAD_19ribs,
-    "";
-    data_type=".svg",
-    save_path="",
-    is_save=false,
-    is_show=true,
-    view_elevation=15,
-    view_azimuth=-120
-)
+# # Plotting geometry
+# plot && plot_geometry(
+#     body_aero_CAD_19ribs,
+#     "";
+#     data_type=".svg",
+#     save_path="",
+#     is_save=false,
+#     is_show=true,
+#     view_elevation=15,
+#     view_azimuth=-120
+# )
 
 # Solving and plotting distributions
 results = solve(vsm_solver, body_aero_CAD_19ribs)
@@ -108,7 +108,7 @@ plot && plot_polars(
         "CFD_Lebesque Rey 30e5"
     ];
     literature_path_list=[path_cfd_lebesque],
-    angle_range=range(0, 25, length=25),
+    angle_range=[0:25..., 24:-1:0..., 1:25...],
     angle_type="angle_of_attack",
     angle_of_attack=0,
     side_slip=0,

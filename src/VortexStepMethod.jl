@@ -29,7 +29,7 @@ export AeroModel, LEI_AIRFOIL_BREUKELS, POLAR_DATA, INVISCID
 export PanelDistribution, LINEAR, COSINE, COSINE_VAN_GARREL, SPLIT_PROVIDED, UNCHANGED
 export InitialGammaDistribution, ELLIPTIC, ZEROS
 
-export plot_geometry, plot_distribution, plot_circulation_distribution, plot_geometry, plot_polars, save_plot, show_plot
+export plot_geometry, plot_distribution, plot_circulation_distribution, plot_geometry, plot_polars, plot_foil_polars, save_plot, show_plot
 
 # the following functions are defined in ext/VortexStepMethodExt.jl
 function plot_geometry end
@@ -37,6 +37,7 @@ function plot_distribution end
 function plot_circulation_distribution end
 function plot_geometry end
 function plot_polars end
+function plot_foil_polars end
 function save_plot end
 function show_plot end
 

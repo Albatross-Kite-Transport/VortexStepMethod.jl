@@ -10,7 +10,7 @@ Main solver structure for the Vortex Step Method.
 - `aerodynamic_model_type`::Model: The model type, see: [Model](@ref)
 - density::Float64: Air density [kg/m³]
 - `max_iterations`::Int64
-- `allowed_error`::Float64: relative error
+- `reltol`::Float64: relative error
 - `tol_reference_error`::Float64
 - `relaxation_factor`::Float64
 
@@ -29,7 +29,8 @@ struct Solver
     aerodynamic_model_type::Model
     density::Float64
     max_iterations::Int64
-    allowed_error::Float64
+    reltol::Float64
+    abstol::Float64
     tol_reference_error::Float64
     relaxation_factor::Float64
     
@@ -47,7 +48,8 @@ struct Solver
         aerodynamic_model_type::Model    = VSM,
         density::Float64                 = 1.225,
         max_iterations::Int64            = 1500,
-        allowed_error::Float64           = 1e-5, # rel_err
+        reltol::Float64           = 1e-5, # rel_err
+        abstol::Float64           = 1e-5, # abs_err
         tol_reference_error::Float64     = 0.001,
         relaxation_factor::Float64       = 0.03,
         is_with_artificial_damping::Bool = false,
@@ -61,7 +63,8 @@ struct Solver
             aerodynamic_model_type,
             density,
             max_iterations,
-            allowed_error,
+            reltol,
+            abstol,
             tol_reference_error,
             relaxation_factor,
             is_with_artificial_damping,
@@ -86,14 +89,14 @@ Main solving routine for the aerodynamic model. Reference point is in the kite b
 - gamma_distribution: Initial circulation vector or nothing; Length: Number of segments. [m²/s]
 
 # Keyword Arguments:
-- log=false: If true, print the number of iterations and other info.
+- log=true: If true, print the number of iterations and other info.
 - reference_point=zeros(MVec3)
 
 # Returns
 A dictionary with the results.
 """
 function solve(solver::Solver, body_aero::BodyAerodynamics, gamma_distribution=nothing; 
-               log=false, reference_point=zeros(MVec3))
+               log=true, reference_point=zeros(MVec3))
     
     # check arguments
     isnothing(body_aero.panels[1].va) && throw(ArgumentError("Inflow conditions are not set, use set_va!(body_aero, va)"))
@@ -163,7 +166,6 @@ function solve(solver::Solver, body_aero::BodyAerodynamics, gamma_distribution=n
     )
     # Try again with reduced relaxation factor if not converged
     # if !converged && relaxation_factor > 1e-3
-    #     log && @warn "Running again with half the relaxation_factor = $(relaxation_factor/2)"
     #     converged, gamma_new, alpha_array, v_a_array = gamma_loop(
     #         solver,
     #         body_aero,
@@ -205,55 +207,55 @@ end
 
 cross3(x,y) = cross(SVector{3,eltype(x)}(x), SVector{3,eltype(y)}(y))
 
-"""
-    smooth_vector!(output::Vector{Float64}, input::Vector{Float64}, window::Int=3)
 
-Smooth a vector using a Gaussian-like kernel with configurable window size.
-Preserves the vector mean and handles edge cases.
+"""
+    create_smooth_gamma!(gamma::Vector{Float64}, control_points::Vector{Float64}, span_positions::Vector{Float64})
+
+Generate smooth gamma distribution using cubic B-spline interpolation with control points.
+Ensures differentiability and bounded derivatives.
+"""
+function create_smooth_gamma!(gamma::Vector, control_points, span_positions)
+    # Create normalized positions for control points
+    n_controls = length(control_points)
+    control_positions = range(-1.0, 1.0, n_controls)
+    
+    # Create cubic B-spline interpolation
+    itp = CubicSplineInterpolation(control_positions, control_points)
+    
+    # Evaluate at panel positions
+    for (i, pos) in enumerate(span_positions)
+        gamma[i] = itp(pos)
+    end
+end
+
+"""
+    fit_control_points(gamma::Vector{Float64}, span_positions::Vector{Float64}, n_controls::Int)
+
+Fit n_controls control points to a gamma distribution using B-spline interpolation.
+Returns control point values that best represent the gamma distribution.
 
 # Arguments
-- `output`: Pre-allocated output vector
-- `input`: Input vector to smooth
-- `window`: Window size (must be odd, will be forced odd if even)
+- `gamma`: Vector of circulation values
+- `span_positions`: Vector of span positions where gamma is evaluated
+- `n_controls`: Number of control points to fit
+
+# Returns
+- Vector{Float64}: Control point values
 """
-function smooth_vector!(output::Vector{Float64}, input::Vector{Float64}, window::Int=3)
-    n = length(input)
-    n == length(output) || throw(DimensionMismatch("Input and output must have same length"))
+function fit_control_points(gamma::Vector, span_positions, n_controls::Int)
+    # Create control point positions (evenly spaced)
+    control_positions = range(-1.0, 1.0, n_controls)
     
-    # Force odd window size
-    window = window % 2 == 0 ? window + 1 : window
-    half_window = window ÷ 2
+    # Create interpolation of existing gamma distribution
+    itp = CubicSplineInterpolation(span_positions, gamma)
     
-    # Handle special cases
-    if n <= window
-        output .= input
-        return nothing
+    # Evaluate at control points
+    control_values = zeros(n_controls)
+    for (i, pos) in enumerate(control_positions)
+        control_values[i] = itp(pos)
     end
     
-    # Create Gaussian-like weights
-    weights = [exp(-(i-half_window)^2 / (2*(half_window/2)^2)) 
-              for i in 0:window-1]
-    weights ./= sum(weights)
-    
-    # Process interior points
-    for i in 1:n
-        sum_weights = 0.0
-        output[i] = 0.0
-        
-        for j in max(1, i-half_window):min(n, i+half_window)
-            weight = weights[j - (i-half_window) + 1]
-            output[i] += input[j] * weight
-            sum_weights += weight
-        end
-        
-        output[i] /= sum_weights
-    end
-    
-    # Preserve mean
-    if mean(output) != 0.0
-        output .*= mean(input) / mean(output)
-    end
-    return nothing
+    return control_values
 end
 
 """
@@ -284,6 +286,7 @@ function gamma_loop(
     v_a_array = body_aero.v_a_array
     Umagw_array = similar(v_a_array)
 
+    # gamma_new, _ = smooth_circulation(gamma_new, 0.1, 0.03)
     gamma = copy(gamma_new)
     abs_gamma_new = copy(gamma_new)
     induced_velocity_all = zeros(n_panels, 3)
@@ -301,9 +304,11 @@ function gamma_loop(
     velocity_view_y = @view induced_velocity_all[:, 2]
     velocity_view_z = @view induced_velocity_all[:, 3]
 
-    iters = 0
-    function f!(res, gamma, p)
-        iters += 1
+    n_controls = 13  # Odd number for symmetry
+    span_positions = range(-1.0, 1.0, n_panels)
+
+    function f!(res, control_points, p)
+        create_smooth_gamma!(gamma, control_points, span_positions)
 
         # Calculate induced velocities
         mul!(velocity_view_x, AIC_x, gamma)
@@ -338,36 +343,28 @@ function gamma_loop(
         end
         gamma_new .= 0.5 .* v_a_array.^2 ./ Umagw_array .* cl_array .* chord_array
 
-        res .= gamma_new .- gamma
-        # Add regularization terms to enforce smoothness
-        # λ = 1e-2  # Adjust regularization strength (start with 1e-3)
-        # n = length(gamma)
-        # for i in 1:n
-        #     sign = res[i] > 0 ? 1 : -1
-        #     if i == 1
-        #         # Forward difference at left boundary
-        #         res[i] += λ * sign * (gamma[i+1] - gamma[i])
-        #     elseif i == n
-        #         # Backward difference at right boundary
-        #         res[i] += λ * sign * (gamma[i-1] - gamma[i])
-        #     else
-        #         # Central difference (discrete Laplacian)
-        #         res[i] += λ * sign * (gamma[i-1] - 2*gamma[i] + gamma[i+1])
-        #     end
+        control_new = fit_control_points(gamma_new, span_positions, n_controls)
+        res .= abs.(control_new .- control_points)
+
+        # λ = 1e-2
+        # for i in 2:length(res)-1
+        #     res[i] += 0.5λ * ((res[i] - res[i-1]) - (res[i+1] - res[i]))
         # end
 
         return nothing
     end
 
-    prob = NonlinearProblem(f!, gamma_new, nothing)
-    sol = NonlinearSolve.solve(prob, RobustMultiNewton(autodiff=AutoFiniteDiff()))
-    f!(gamma, sol.u, nothing)
-    @show NonlinearSolve.SciMLBase.successful_retcode(sol)
+    initial_controls = zeros(n_controls)
+    prob = NonlinearProblem(f!, initial_controls, nothing)
+    sol = NonlinearSolve.solve(prob, NewtonRaphson(autodiff=AutoFiniteDiff()); reltol=solver.reltol, abstol=solver.abstol, maxiters=solver.max_iterations)
+    f!(initial_controls, sol.u, nothing)
+    converged = NonlinearSolve.SciMLBase.successful_retcode(sol)
+    @show sol.retcode
 
     if log && converged
-        @info "Converged after $iters iterations"
+        @info "Converged after $(sol.stats.nf) iterations"
     elseif log
-        @warn "NO convergence after $(solver.max_iterations) iterations"
+        @warn "NO convergence after $(sol.stats.nf) iterations"
     end
 
     return converged, gamma_new, alpha_array, v_a_array
@@ -390,7 +387,7 @@ function smooth_circulation(
 )
     # Calculate mean circulation excluding endpoints
     circulation_mean = mean(circulation[2:end-1])
-    smoothness_threshold = smoothness_factor * circulation_mean
+    # smoothness_threshold = smoothness_factor * circulation_mean
 
     # Calculate differences between adjacent points
     differences = diff(circulation[2:end-1])
@@ -398,12 +395,12 @@ function smooth_circulation(
 
     # Check smoothness
     if isempty(differences)
-        return zeros(length(circulation)), false
+        return circulation, false
     end
 
-    if maximum(abs.(differences)) <= smoothness_threshold
-        return zeros(length(circulation)), false
-    end
+    # if maximum(abs.(differences)) <= smoothness_threshold
+    #     return circulation, false
+    # end
 
     # Apply smoothing
     smoothed = copy(circulation)
@@ -419,7 +416,5 @@ function smooth_circulation(
     total_original = sum(circulation)
     total_smoothed = sum(smoothed)
     smoothed .*= total_original / total_smoothed
-
-    damp = smoothed - circulation
-    return damp, true
+    return smoothed, true
 end
