@@ -18,7 +18,7 @@ using SharedArrays
 # Export public interface
 export Wing, Section, KiteWing
 export BodyAerodynamics
-export Solver, solve
+export Solver, solve, solve_base
 export calculate_results, solve_circulation_distribution
 export add_section!, set_va!
 export calculate_span, calculate_projected_area
@@ -121,6 +121,19 @@ Enumeration of the implemented initial gamma distributions.
 - ZEROS
 """
 @enum InitialGammaDistribution ELLIPTIC ZEROS
+
+"""
+   SolverStatus FEASIBLE INFEASIBLE FAILURE
+
+Enumeration to report back the validity of the result of the solve! function.
+Used in the [Result](@ref) struct.
+
+# Elements
+- FEASIBLE: The gamma distribution is physically feasible
+- INFEASIBLE: The gamma distribution is physically infeasible
+- FAILURE: The result did not converge within the maximal number of iterations
+"""
+@enum SolverStatus FEASIBLE INFEASIBLE FAILURE
 
 abstract type AbstractWing end
 

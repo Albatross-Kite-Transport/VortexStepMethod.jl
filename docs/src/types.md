@@ -7,6 +7,7 @@ Model
 AeroModel
 PanelDistribution
 InitialGammaDistribution
+SolverStatus
 ```
 
 ## Basic Vectors
@@ -37,7 +38,8 @@ KiteWing(obj_path, dat_path; alpha=0.0, crease_frac=0.75, wind_vel=10., mass=1.0
 BodyAerodynamics
 ```
 
-## The Solver
+## The Solver and its results
 ```@docs
 Solver
+Result
 ```
