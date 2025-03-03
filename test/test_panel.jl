@@ -24,16 +24,16 @@ function create_panel(section1::Section, section2::Section)
 
     LLpoint = aero_center
     VSMpoint = control_point
-    x_airf = cross(VSMpoint .- LLpoint, section["p2"] .- section["p1"])
-    x_airf = x_airf ./ norm(x_airf)
+    z_airf = cross(VSMpoint .- LLpoint, section["p2"] .- section["p1"])
+    z_airf = z_airf ./ norm(z_airf)
 
     # TANGENTIAL y_airf defined parallel to the chord-line
-    y_airf = VSMpoint .- LLpoint
-    y_airf = y_airf ./ norm(y_airf)
+    x_airf = VSMpoint .- LLpoint
+    x_airf = x_airf ./ norm(x_airf)
 
-    # SPAN z_airf along the LE
-    z_airf = bound_2 .- bound_1
-    z_airf = z_airf ./ norm(z_airf)
+    # SPAN y_airf along the LE
+    y_airf = bound_2 .- bound_1
+    y_airf = y_airf ./ norm(y_airf)
 
     panel = Panel()
     init!(
@@ -89,9 +89,9 @@ end
         panel = create_panel(section1, section2)
 
         # Test reference frame vectors
-        @test isapprox(panel.x_airf, [0.0, 0.0, 1.0])
-        @test isapprox(panel.y_airf, [1.0, 0.0, 0.0])
-        @test isapprox(panel.z_airf, [0.0, 1.0, 0.0])
+        @test isapprox(panel.z_airf, [0.0, 0.0, 1.0])
+        @test isapprox(panel.x_airf, [1.0, 0.0, 0.0])
+        @test isapprox(panel.y_airf, [0.0, 1.0, 0.0])
     end
 
     @testset "Velocity Calculations" begin
@@ -105,8 +105,8 @@ end
         alpha, rel_vel = calculate_relative_alpha_and_relative_velocity(panel, induced_velocity)
         
         # Verify calculations
-        norm_airf = panel.x_airf
-        tan_airf = panel.y_airf
+        norm_airf = panel.z_airf
+        tan_airf = panel.x_airf
         relative_velocity = panel.va .+ induced_velocity
         vn = dot(norm_airf, relative_velocity)
         vtan = dot(tan_airf, relative_velocity)

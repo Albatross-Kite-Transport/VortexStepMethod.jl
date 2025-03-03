@@ -234,17 +234,17 @@ function gamma_loop(
         for i in 1:n_panels
             relative_velocity_crossz[i, :] .= cross3(
                 view(relative_velocity_array, i, :),
-                view(z_airf_array, i, :)
+                view(y_airf_array, i, :)
             )
             v_acrossz_array[i, :] .= cross3(
                 view(va_array, i, :),
-                view(z_airf_array, i, :)
+                view(y_airf_array, i, :)
             )
         end
 
         for i in 1:n_panels
-            v_normal_array[i] = dot(view(x_airf_array, i, :), view(relative_velocity_array, i, :))
-            v_tangential_array[i] = dot(view(y_airf_array, i, :), view(relative_velocity_array, i, :))
+            v_normal_array[i] = dot(view(z_airf_array, i, :), view(relative_velocity_array, i, :))
+            v_tangential_array[i] = dot(view(x_airf_array, i, :), view(relative_velocity_array, i, :))
         end
         alpha_array .= atan.(v_normal_array, v_tangential_array)
 

@@ -26,9 +26,9 @@ Represents a panel in a vortex step method simulation. All points and vectors ar
 - `control_point`::Vector{MVec3}: Panel control point
 - `bound_point_1`::Vector{MVec3}: First bound point
 - `bound_point_2`::Vector{MVec3}: Second bound point
-- `x_airf`::MVec3=zeros(MVec3): Unit vector perpendicular to chord line
-- `y_airf`::MVec3=zeros(MVec3): Unit vector parallel to chord line
-- `z_airf`::MVec3=zeros(MVec3): Unit vector in spanwise direction
+- `x_airf`::MVec3=zeros(MVec3): Unit vector tangential to chord line
+- `y_airf`::MVec3=zeros(MVec3): Unit vector in spanwise direction
+- `z_airf`::MVec3=zeros(MVec3): Unit vector, cross product of x_airf and y_airf
 - `width`::Float64=0: Panel width
 - filaments::Tuple{BoundFilament,BoundFilament,BoundFilament,SemiInfiniteFilament,SemiInfiniteFilament} = (
         BoundFilament(),
@@ -212,8 +212,8 @@ function calculate_relative_alpha_and_relative_velocity(
     # Calculate relative velocity and angle of attack
     # Constants throughout iterations: panel.va, panel.x_airf, panel.y_airf
     relative_velocity = panel.va .+ induced_velocity
-    v_normal = dot(panel.x_airf, relative_velocity)
-    v_tangential = dot(panel.y_airf, relative_velocity)
+    v_normal = dot(panel.z_airf, relative_velocity)
+    v_tangential = dot(panel.x_airf, relative_velocity)
     alpha = atan(v_normal / v_tangential)
     
     return alpha, relative_velocity
@@ -291,8 +291,8 @@ Calculate relative angle of attack and relative velocity of the panel.
 """
 function calculate_relative_alpha_and_velocity(panel::Panel, induced_velocity::Vector{Float64})
     relative_velocity = panel.va + induced_velocity
-    v_normal = dot(panel.x_airf, relative_velocity)
-    v_tangential = dot(panel.y_airf, relative_velocity)
+    v_normal = dot(panel.z_airf, relative_velocity)
+    v_tangential = dot(panel.x_airf, relative_velocity)
     alpha = atan(v_normal / v_tangential)
     return alpha, relative_velocity
 end

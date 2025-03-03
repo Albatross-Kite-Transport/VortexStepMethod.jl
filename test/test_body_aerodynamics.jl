@@ -179,8 +179,8 @@ end
         [calculate_cd_cm(panel, alpha[i])[2] for (i, panel) in enumerate(body_aero.panels)]
     )
     
-    ringvec = [Dict("r0" => panel.width * panel.z_airf) for panel in body_aero.panels]
-    controlpoints = [Dict("tangential" => panel.y_airf, "normal" => panel.x_airf) 
+    ringvec = [Dict("r0" => panel.width * panel.y_airf) for panel in body_aero.panels]
+    controlpoints = [Dict("tangential" => panel.x_airf, "normal" => panel.z_airf) 
                     for panel in body_aero.panels]
     Atot = calculate_projected_area(wing)
 
@@ -285,10 +285,10 @@ end
 
                 @test isapprox(evaluation_point, expected_controlpoints[i]["coordinates"], atol=1e-4)
                 @test isapprox(panel.chord, expected_controlpoints[i]["chord"], atol=1e-4)
-                @test isapprox(panel.x_airf, expected_controlpoints[i]["normal"], atol=1e-4)
-                @test isapprox(panel.y_airf, expected_controlpoints[i]["tangential"], atol=1e-4)
+                @test isapprox(panel.z_airf, expected_controlpoints[i]["normal"], atol=1e-4)
+                @test isapprox(panel.x_airf, expected_controlpoints[i]["tangential"], atol=1e-4)
                 @test isapprox(
-                    hcat(panel.x_airf, panel.y_airf, panel.z_airf),
+                    hcat(panel.z_airf, panel.x_airf, panel.y_airf),
                     expected_controlpoints[i]["airf_coord"],
                     atol=1e-4
                 )

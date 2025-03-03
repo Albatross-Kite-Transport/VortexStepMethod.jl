@@ -216,14 +216,14 @@ function calculate_panel_properties(section_list::Vector{Section}, n_panels::Int
         bound_2 = section["p2"] * 0.75 + section["p3"] * 0.25
         
         # Calculate reference frame vectors
-        x_airf_vec = cross(VSM_point - LL_point, section["p1"] - section["p2"])
+        z_airf_vec = cross(VSM_point - LL_point, section["p1"] - section["p2"])
+        z_airf_vec = z_airf_vec / norm(z_airf_vec)
+        
+        x_airf_vec = VSM_point - LL_point
         x_airf_vec = x_airf_vec / norm(x_airf_vec)
         
-        y_airf_vec = VSM_point - LL_point
+        y_airf_vec = bound_1 - bound_2
         y_airf_vec = y_airf_vec / norm(y_airf_vec)
-        
-        z_airf_vec = bound_1 - bound_2
-        z_airf_vec = z_airf_vec / norm(z_airf_vec)
         
         # Store results
         push!(aero_centers, LL_point)
@@ -368,8 +368,8 @@ end
 """
     update_effective_angle_of_attack_if_VSM(body_aero::BodyAerodynamics, gamma::Vector{Float64},
                                           core_radius_fraction::Float64,
+                                          z_airf_array::Matrix{Float64},
                                           x_airf_array::Matrix{Float64},
-                                          y_airf_array::Matrix{Float64},
                                           va_array::Matrix{Float64},
                                           va_norm_array::Vector{Float64},
                                           va_unit_array::Matrix{Float64})
@@ -382,8 +382,8 @@ Returns:
 function update_effective_angle_of_attack_if_VSM(body_aero::BodyAerodynamics, 
     gamma::Vector{Float64},
     core_radius_fraction::Float64,
+    z_airf_array::Matrix{Float64},
     x_airf_array::Matrix{Float64},
-    y_airf_array::Matrix{Float64},
     va_array::Matrix{Float64},
     va_norm_array::Vector{Float64},
     va_unit_array::Matrix{Float64})
@@ -404,8 +404,8 @@ function update_effective_angle_of_attack_if_VSM(body_aero::BodyAerodynamics,
     
     # Calculate relative velocities and angles
     relative_velocity = va_array + induced_velocity
-    v_normal = sum(x_airf_array .* relative_velocity, dims=2)
-    v_tangential = sum(y_airf_array .* relative_velocity, dims=2)
+    v_normal = sum(z_airf_array .* relative_velocity, dims=2)
+    v_tangential = sum(x_airf_array .* relative_velocity, dims=2)
     alpha_array = atan.(v_normal ./ v_tangential)
     return alpha_array
 end
@@ -472,8 +472,8 @@ function calculate_results(
             body_aero,
             gamma_new,
             core_radius_fraction,
+            z_airf_array,
             x_airf_array,
-            y_airf_array,
             va_array,
             va_norm_array,
             va_unit_array
@@ -513,20 +513,17 @@ function calculate_results(
     for (i, panel) in enumerate(panels)
         ### Lift and Drag ###
         # Panel geometry
-        z_airf_span = panel.z_airf
-        y_airf_chord = panel.y_airf
-        x_airf_normal = panel.x_airf
         panel_area = panel.chord * panel.width
         area_all_panels += panel_area
 
         # Calculate induced velocity direction
         alpha_corrected_i = alpha_corrected[i]
-        induced_va_airfoil = cos(alpha_corrected_i) * y_airf_chord + 
-                            sin(alpha_corrected_i) * x_airf_normal
+        induced_va_airfoil = cos(alpha_corrected_i) * panel.x_airf + 
+                            sin(alpha_corrected_i) * panel.z_airf
         dir_induced_va_airfoil = induced_va_airfoil / norm(induced_va_airfoil)
 
         # Calculate lift and drag directions
-        dir_lift_induced_va = cross(dir_induced_va_airfoil, z_airf_span)
+        dir_lift_induced_va = cross(dir_induced_va_airfoil, panel.y_airf)
         dir_lift_induced_va = dir_lift_induced_va / norm(dir_lift_induced_va)
         dir_drag_induced_va = cross(spanwise_direction, dir_lift_induced_va)
         dir_drag_induced_va = dir_drag_induced_va / norm(dir_drag_induced_va)
@@ -571,8 +568,8 @@ function calculate_results(
 
         # (2) Convert local (2D) pitching moment to a 3D vector in body coords.
         #     Use the axis around which the moment is defined,
-        #     which is the z-axis pointing "spanwise"
-        moment_axis_body = panel.z_airf
+        #     which is the y-axis pointing "spanwise"
+        moment_axis_body = panel.y_airf
 
         # Scale by panel width if your 'moment[i]' is 2D moment-per-unit-span:
         M_local_3D = moment[i] * moment_axis_body * panel.width
@@ -601,8 +598,8 @@ function calculate_results(
 
     # Calculate geometric angle of attack
     horizontal_direction = [1.0, 0.0, 0.0]
-    alpha_geometric = [rad2deg(acos(dot(panel.y_airf, horizontal_direction) /
-                     (norm(panel.y_airf) * norm(horizontal_direction))))
+    alpha_geometric = [rad2deg(acos(dot(panel.x_airf, horizontal_direction) /
+                     (norm(panel.x_airf) * norm(horizontal_direction))))
                      for panel in panels]
 
     # Calculate Reynolds number
