@@ -12,7 +12,32 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 jobs:
+  check_versions:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Get Julia versions
+        id: versions
+        run: |
+          STABLE=$(curl -s https://julialang-s3.julialang.org/bin/versions.json | jq -r '.stable.version')
+          LATEST=$(curl -s https://julialang-s3.julialang.org/bin/versions.json | jq -r '.latest.version')
+          PRE=$(curl -s https://julialang-s3.julialang.org/bin/versions.json | jq -r '.pre.version')
+          echo "STABLE=$STABLE" >> $GITHUB_OUTPUT
+          echo "LATEST=$LATEST" >> $GITHUB_OUTPUT
+          echo "PRE=$PRE" >> $GITHUB_OUTPUT
+      - name: Set matrix
+        id: set-matrix
+        run: |
+          if [ "${{ steps.versions.outputs.PRE }}" != "null" ] && [ "${{ steps.versions.outputs.PRE }}" != "${{ steps.versions.outputs.LATEST }}" ]; then
+            echo "matrix={\"version\":[\"${{ steps.versions.outputs.STABLE }}\",\"${{ steps.versions.outputs.LATEST }}\",\"${{ steps.versions.outputs.PRE }}\"]}" >> $GITHUB_OUTPUT
+            cat $GITHUB_OUTPUT
+          else
+            echo "matrix={\"version\":[\"${{ steps.versions.outputs.STABLE }}\",\"${{ steps.versions.outputs.LATEST }}\"]}" >> $GITHUB_OUTPUT
+            cat $GITHUB_OUTPUT
+          fi
   test:
+    needs: check_versions
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ${{ matrix.os }}
