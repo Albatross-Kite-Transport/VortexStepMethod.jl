@@ -703,17 +703,23 @@ function linearize(solver::Solver, body_aero::BodyAerodynamics, y::Vector{T};
         @views theta_angles = isnothing(theta_idxs) ? nothing : y[theta_idxs]
         @views delta_angles = isnothing(delta_idxs) ? nothing : y[delta_idxs]
 
-        if !isnothing(theta_angles)
-            if isnothing(delta_angles)
-                if !all(theta_angles .== last_theta)
-                    VortexStepMethod.group_deform!(wing, theta_angles; smooth=false)
-                    VortexStepMethod.init!(body_aero; init_aero=false)
-                    last_theta .= theta_angles
-                end
-            elseif !all(delta_angles .== last_delta) || !all(theta_angles .== last_theta)
+        if !isnothing(theta_angles) && isnothing(delta_angles)
+            if !all(theta_angles .== last_theta)
+                VortexStepMethod.group_deform!(wing, theta_angles, nothing; smooth=false)
+                VortexStepMethod.init!(body_aero; init_aero=false)
+                last_theta .= theta_angles
+            end
+        elseif !isnothing(theta_angles) && !isnothing(delta_angles)
+            if !all(delta_angles .== last_delta) || !all(theta_angles .== last_theta)
                 VortexStepMethod.group_deform!(wing, theta_angles, delta_angles; smooth=false)
                 VortexStepMethod.init!(body_aero; init_aero=false)
                 last_theta .= theta_angles
+                last_delta .= delta_angles
+            end
+        elseif isnothing(theta_angles) && !isnothing(delta_angles)
+            if !all(delta_angles .== last_delta)
+                VortexStepMethod.group_deform!(wing, nothing, delta_angles; smooth=false)
+                VortexStepMethod.init!(body_aero; init_aero=false)
                 last_delta .= delta_angles
             end
         end

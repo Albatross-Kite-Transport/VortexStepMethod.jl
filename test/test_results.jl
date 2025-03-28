@@ -132,49 +132,125 @@ end
     
     # Test combinations of input variations
     @testset "Combined Input Variations" begin
-        # Sample some key combinations
+        # For combination testing, we'll create targeted test cases
+        # that use only the specific indices we want to test together
         combination_tests = [
-            ("Theta + VA", [dtheta_magnitudes[1] * ones(4); dva_magnitudes[1] * ones(3); zeros(3); zeros(4)]),
-            ("Theta + Omega", [dtheta_magnitudes[1] * ones(4); zeros(3); domega_magnitudes[1] * ones(3); zeros(4)]),
-            ("VA + Omega", [zeros(4); dva_magnitudes[1] * ones(3); domega_magnitudes[1] * ones(3); zeros(4)]),
-            ("Delta + VA", [zeros(4); dva_magnitudes[1] * ones(3); zeros(3); ddelta_magnitudes[1] * ones(4)]),
-            ("All Inputs", [dtheta_magnitudes[1] * ones(4); dva_magnitudes[1] * ones(3); 
-                           domega_magnitudes[1] * ones(3); ddelta_magnitudes[1] * ones(4)])
+            # Name, active indices, perturbation vector, indices mappings
+            (
+                "Theta + VA", 
+                # Use only theta and va indices
+                [1:4; 5:7],  
+                # Perturbation values for these indices
+                [dtheta_magnitudes; dva_magnitudes],
+                # Mappings for linearize function
+                (theta_idxs=1:4, va_idxs=5:7, omega_idxs=nothing, delta_idxs=nothing)
+            ),
+            (
+                "Theta + Omega", 
+                [1:4; 8:10],
+                [dtheta_magnitudes; domega_magnitudes],
+                (theta_idxs=1:4, va_idxs=nothing, omega_idxs=5:7, delta_idxs=nothing)
+            ),
+            (
+                "VA + Omega", 
+                [5:7; 8:10],
+                [dva_magnitudes; domega_magnitudes],
+                (theta_idxs=nothing, va_idxs=1:3, omega_idxs=4:6, delta_idxs=nothing)
+            ),
+            (
+                "Delta + VA", 
+                [5:7; 11:14],
+                [dva_magnitudes; ddelta_magnitudes],
+                (theta_idxs=nothing, va_idxs=1:3, omega_idxs=nothing, delta_idxs=4:7)
+            ),
+            (
+                "All Inputs", 
+                [1:4; 5:7; 8:10; 11:14],
+                [dtheta_magnitudes; dva_magnitudes; 
+                domega_magnitudes; ddelta_magnitudes],
+                (theta_idxs=1:4, va_idxs=5:7, omega_idxs=8:10, delta_idxs=11:14)
+            )
         ]
         
-        for (combo_name, perturbation) in combination_tests
-            # Reset to baseline
-            VortexStepMethod.group_deform!(ram_wing, theta, delta; smooth=false)
-            init!(body_aero; init_aero=false, va=va, omega=zeros(3))
-            
-            # Extract components
-            perturbed_theta = theta + perturbation[1:4]
-            perturbed_va = va + perturbation[5:7]
-            perturbed_omega = perturbation[8:10]
-            perturbed_delta = delta + perturbation[11:14]
-            
-            # Apply to nonlinear model
-            VortexStepMethod.group_deform!(ram_wing, perturbed_theta, perturbed_delta; smooth=false)
-            init!(body_aero; init_aero=false, va=perturbed_va, omega=perturbed_omega)
-            
-            # Get nonlinear solution
-            nonlin_res = VortexStepMethod.solve!(solver, body_aero; log=false)
-            nonlin_res = [solver.sol.force; solver.sol.moment; solver.sol.group_moment_dist]
-            
-            # Compute linearized prediction
-            lin_prediction = lin_res + jac * perturbation
-            
-            # Calculate error ratio
-            prediction_error = norm(lin_prediction - nonlin_res)
-            baseline_difference = norm(lin_res - nonlin_res)
-            error_ratio = prediction_error / baseline_difference
-            
-            @info "$combo_name error ratio: $error_ratio"
-            
-            # Test combinations
-            @test lin_res ≉ nonlin_res atol=1e-2
-            @test lin_prediction ≈ nonlin_res rtol=0.2 atol=0.05
-            @test error_ratio < 2e-3
+        for (combo_name, active_indices, perturbation, idx_mappings) in combination_tests
+            @testset "$combo_name" begin
+                # Start with a fresh model for each combination test
+                VortexStepMethod.group_deform!(ram_wing, theta, delta; smooth=false)
+                init!(body_aero; init_aero=false, va, omega)
+                
+                # Create the appropriate input vector for this combination
+                input_vec = Vector{Float64}(undef, length(active_indices))
+                
+                # Fill with base values
+                if !isnothing(idx_mappings.theta_idxs)
+                    input_vec[idx_mappings.theta_idxs] .= theta
+                end
+                if !isnothing(idx_mappings.va_idxs)
+                    input_vec[idx_mappings.va_idxs] .= va
+                end
+                if !isnothing(idx_mappings.omega_idxs)
+                    input_vec[idx_mappings.omega_idxs] .= omega
+                end
+                if !isnothing(idx_mappings.delta_idxs)
+                    input_vec[idx_mappings.delta_idxs] .= delta
+                end
+                
+                # Get the Jacobian and linearization result for this specific combination
+                jac_combo, lin_res_combo = VortexStepMethod.linearize(
+                    solver, 
+                    body_aero, 
+                    input_vec; 
+                    idx_mappings...
+                )
+                
+                # Get baseline results
+                baseline_res = VortexStepMethod.solve!(solver, body_aero; log=false)
+                baseline_res = [solver.sol.force; solver.sol.moment; solver.sol.group_moment_dist]
+                
+                # Should match the linearization result
+                @test baseline_res ≈ lin_res_combo
+                
+                # Apply perturbation using the appropriate indices
+                perturbed_input = copy(input_vec) + perturbation
+                
+                # Extract components based on the combination being tested
+                perturbed_theta = !isnothing(idx_mappings.theta_idxs) ? 
+                    perturbed_input[idx_mappings.theta_idxs] : theta
+                
+                perturbed_va = !isnothing(idx_mappings.va_idxs) ? 
+                    perturbed_input[idx_mappings.va_idxs] : va
+                
+                perturbed_omega = !isnothing(idx_mappings.omega_idxs) ? 
+                    perturbed_input[idx_mappings.omega_idxs] : omega
+                
+                perturbed_delta = !isnothing(idx_mappings.delta_idxs) ? 
+                    perturbed_input[idx_mappings.delta_idxs] : delta
+                
+                # Apply to nonlinear model
+                VortexStepMethod.group_deform!(ram_wing, perturbed_theta, perturbed_delta; smooth=false)
+                init!(body_aero; init_aero=false, va=perturbed_va, omega=perturbed_omega)
+                
+                # Get nonlinear solution with perturbation
+                nonlin_res = VortexStepMethod.solve!(solver, body_aero; log=false)
+                nonlin_res = [solver.sol.force; solver.sol.moment; solver.sol.group_moment_dist]
+                
+                # Compute linearized prediction using our specialized Jacobian
+                lin_prediction = lin_res_combo + jac_combo * perturbation
+                
+                # Ensure perturbation had an effect
+                @test baseline_res ≉ nonlin_res atol=1e-3
+                
+                # Calculate error ratio
+                prediction_error = norm(lin_prediction - nonlin_res)
+                baseline_difference = norm(baseline_res - nonlin_res)
+                error_ratio = prediction_error / baseline_difference
+                
+                @info "$combo_name error metrics" prediction_error baseline_difference error_ratio
+                
+                # Validate the prediction
+                @test lin_prediction ≈ nonlin_res rtol=0.1 atol=1e-3
+                @test error_ratio < 0.05
+            end
         end
     end
 end

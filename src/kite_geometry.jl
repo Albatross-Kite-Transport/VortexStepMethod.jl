@@ -570,31 +570,40 @@ Distribute control angles across wing panels and apply smoothing using a moving 
 # Returns
 - `nothing` (modifies wing in-place)
 """
-function group_deform!(wing::RamAirWing, theta_angles::AbstractVector, delta_angles=nothing; smooth=false)
-    !(wing.n_panels % length(theta_angles) == 0) && throw(ArgumentError("Number of angles has to be a multiple of number of panels"))
+function group_deform!(wing::RamAirWing, theta_angles=nothing, delta_angles=nothing; smooth=false)
+    !isnothing(theta_angles) && !(wing.n_panels % length(theta_angles) == 0) && 
+        throw(ArgumentError("Number of angles has to be a multiple of number of panels"))
+    !isnothing(delta_angles) && !(wing.n_panels % length(delta_angles) == 0) && 
+        throw(ArgumentError("Number of angles has to be a multiple of number of panels"))
+    isnothing(theta_angles) && isnothing(delta_angles) && return nothing
+
     n_panels = wing.n_panels
     theta_dist = wing.theta_dist
     delta_dist = wing.delta_dist
+    n_angles = isnothing(theta_angles) ? length(delta_angles) : length(theta_angles)
 
     dist_idx = 0
-    for angle_idx in eachindex(theta_angles)
-        for _ in 1:(wing.n_panels ÷ length(theta_angles))
+    for angle_idx in 1:n_angles
+        for _ in 1:(wing.n_panels ÷ n_angles)
             dist_idx += 1
-            theta_dist[dist_idx] = theta_angles[angle_idx]
+            !isnothing(theta_angles) && (theta_dist[dist_idx] = theta_angles[angle_idx])
             !isnothing(delta_angles) && (delta_dist[dist_idx] = delta_angles[angle_idx])
         end
     end
     @assert (dist_idx == wing.n_panels)
 
     if smooth
-        window_size = wing.n_panels ÷ length(theta_angles)
+        window_size = wing.n_panels ÷ n_angles
         if n_panels > window_size
             smoothed = wing.cache[1][theta_dist]
-            smoothed .= theta_dist
-            for i in (window_size÷2 + 1):(n_panels - window_size÷2)
-                @views smoothed[i] = mean(theta_dist[(i - window_size÷2):(i + window_size÷2)])
+
+            if !isnothing(theta_angles)
+                smoothed .= theta_dist
+                for i in (window_size÷2 + 1):(n_panels - window_size÷2)
+                    @views smoothed[i] = mean(theta_dist[(i - window_size÷2):(i + window_size÷2)])
+                end
+                theta_dist .= smoothed
             end
-            theta_dist .= smoothed
             
             if !isnothing(delta_angles)
                 smoothed .= delta_dist
