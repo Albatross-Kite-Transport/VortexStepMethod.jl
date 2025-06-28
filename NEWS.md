@@ -1,3 +1,6 @@
+## Unreleased
+- Bump Interpolations to 0.16
+
 ## VortexStepMethod v1.2.6 2025-04-30
 ### Changed
 - update NonlinearSolve.jl
